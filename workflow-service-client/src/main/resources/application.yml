@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: workflow-service-client
+
+server:
+  port: 8082
+
+logging:
+  level:
+    com.uwf.workflow.client: DEBUG
+    org.springframework.web: INFO
+
+workflow:
+  client:
+    base-url: http://localhost:8080
+    timeout: 5000
+    retry:
+      max-attempts: 3
+      backoff-delay: 1000

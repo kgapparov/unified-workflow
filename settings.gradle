@@ -1,0 +1,10 @@
+rootProject.name = 'unified-workflow'
+
+include 'workflow-bom'
+include 'workflow-common'
+include 'workflow-queue'
+include 'workflow-engine'
+include 'workflow-registry'
+include 'workflow-primitive'
+include 'workflow-api'
+include 'workflow-service-client'

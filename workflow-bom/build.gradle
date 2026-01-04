@@ -1,0 +1,51 @@
+plugins {
+    id 'java-platform'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+javaPlatform {
+    allowDependencies()
+}
+
+dependencies {
+    // Define BOM for Spring Boot
+    api platform('org.springframework.boot:spring-boot-dependencies:4.0.1')
+    
+    // Define versions for common dependencies
+    constraints {
+        // Spring
+        api 'org.springframework:spring-core:6.2.0'
+        api 'org.springframework:spring-context:6.2.0'
+        api 'org.springframework:spring-web:6.2.0'
+        api 'org.springframework:spring-webmvc:6.2.0'
+        api 'org.springframework.data:spring-data-commons:3.4.0'
+        
+        // Database
+        api 'org.springframework.boot:spring-boot-starter-data-jpa:4.0.1'
+        api 'com.h2database:h2:2.3.232'
+        api 'org.postgresql:postgresql:42.7.4'
+        
+        // Messaging/Queue
+        api 'org.springframework.boot:spring-boot-starter-amqp:4.0.1'
+        api 'com.rabbitmq:amqp-client:5.22.0'
+        
+        // Utilities
+        api 'org.projectlombok:lombok:1.18.36'
+        api 'org.slf4j:slf4j-api:2.0.16'
+        api 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
+        api 'com.google.guava:guava:33.3.0-jre'
+        
+        // Testing
+        api 'org.springframework.boot:spring-boot-starter-test:4.0.1'
+        api 'org.junit.jupiter:junit-jupiter-api:5.11.0'
+        api 'org.mockito:mockito-core:5.12.0'
+        api 'org.mockito:mockito-junit-jupiter:5.12.0'
+        
+        // AWS SDK (for S3 primitives)
+        api 'software.amazon.awssdk:s3:2.26.17'
+        
+        // Apache Commons
+        api 'org.apache.commons:commons-lang3:3.17.0'
+        api 'commons-io:commons-io:2.16.1'
+    }
+}

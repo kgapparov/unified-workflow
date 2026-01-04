@@ -1,0 +1,61 @@
+plugins {
+    id 'org.springframework.boot' version '3.4.2' apply false
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+allprojects {
+    group = 'com.uwf'
+    version = '0.0.1-SNAPSHOT'
+    
+    repositories {
+        mavenCentral()
+    }
+    
+    // Define versions for dependencies not in Spring Boot BOM
+    ext {
+        awsSdkVersion = '2.26.17'
+        commonsIoVersion = '2.16.1'
+        commonsLang3Version = '3.17.0'
+        guavaVersion = '33.3.0-jre'
+    }
+}
+
+configure(subprojects.findAll { it.name != 'workflow-bom' }) {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+    
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+    
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
+    
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.2"
+        }
+        
+        // Define versions for dependencies not in Spring Boot BOM
+        dependencies {
+            dependency "software.amazon.awssdk:s3:${awsSdkVersion}"
+            dependency "commons-io:commons-io:${commonsIoVersion}"
+            dependency "org.apache.commons:commons-lang3:${commonsLang3Version}"
+            dependency "com.google.guava:guava:${guavaVersion}"
+        }
+    }
+    
+    dependencies {
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+}
