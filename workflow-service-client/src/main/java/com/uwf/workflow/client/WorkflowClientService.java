@@ -1,61 +1,76 @@
 package com.uwf.workflow.client;
 
-import com.uwf.workflow.common.model.Workflow;
+import com.uwf.workflow.client.model.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Map;
-
 /**
  * Service interface for interacting with workflow services.
- * Provides reactive methods for workflow operations.
+ * Provides reactive methods for workflow operations using structured input/output.
  */
 public interface WorkflowClientService {
 
     /**
      * Submit a workflow for execution.
      *
-     * @param workflow the workflow to execute
-     * @return a Mono containing the run ID
+     * @param input the input containing workflow to execute
+     * @return a Mono containing the submission result
      */
-    Mono<String> submitWorkflow(Workflow workflow);
+    Mono<SubmitWorkflowOutput> submitWorkflow(SubmitWorkflowInput input);
 
     /**
      * Submit a workflow by ID for execution.
      *
-     * @param workflowId the ID of the workflow to execute
-     * @return a Mono containing the run ID
+     * @param input the input containing workflow ID to execute
+     * @return a Mono containing the submission result
      */
-    Mono<String> submitWorkflow(String workflowId);
+    Mono<SubmitWorkflowByIdOutput> submitWorkflowById(SubmitWorkflowByIdInput input);
 
     /**
      * Get the status of a workflow execution.
      *
-     * @param runId the run ID to check
-     * @return a Mono containing the workflow status
+     * @param input the input containing run ID to check
+     * @return a Mono containing the workflow status result
      */
-    Mono<Map<String, Object>> getWorkflowStatus(String runId);
+    Mono<GetWorkflowStatusOutput> getWorkflowStatus(GetWorkflowStatusInput input);
 
     /**
-     * Get all running workflows.
+     * Get workflow data for a specific run.
      *
-     * @return a Flux of workflow statuses
+     * @param input the input containing run ID to get data for
+     * @return a Mono containing the workflow data result
      */
-    Flux<Map<String, Object>> getRunningWorkflows();
+    Mono<GetWorkflowDataOutput> getWorkflowData(GetWorkflowDataInput input);
+
+    /**
+     * List all available workflows.
+     *
+     * @param input the input parameters (currently empty)
+     * @return a Mono containing the list of workflows result
+     */
+    Mono<ListWorkflowsOutput> listWorkflows(ListWorkflowsInput input);
 
     /**
      * Cancel a workflow execution.
      *
-     * @param runId the run ID to cancel
-     * @return a Mono indicating success or failure
+     * @param input the input containing run ID to cancel
+     * @return a Mono containing the cancellation result
      */
-    Mono<Boolean> cancelWorkflow(String runId);
+    Mono<CancelWorkflowOutput> cancelWorkflow(CancelWorkflowInput input);
 
     /**
      * Get workflow definition by ID.
      *
-     * @param workflowId the workflow ID
-     * @return a Mono containing the workflow definition
+     * @param input the input containing workflow ID
+     * @return a Mono containing the workflow definition result
      */
-    Mono<Workflow> getWorkflowDefinition(String workflowId);
+    Mono<GetWorkflowDefinitionOutput> getWorkflowDefinition(GetWorkflowDefinitionInput input);
+
+    /**
+     * Get all running workflows (legacy method for backward compatibility).
+     * Note: This method returns raw Flux for compatibility.
+     *
+     * @return a Flux of workflow statuses
+     */
+    Flux<java.util.Map<String, Object>> getRunningWorkflows();
 }

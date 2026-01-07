@@ -1,0 +1,88 @@
+{
+  "name": "Architect Agent - Stage 2",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "architect-v2",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "architect-webhook-v2"
+    },
+    {
+      "id": "parse-request",
+      "name": "Parse Request",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 250],
+      "parameters": {
+        "jsCode": "// Parse and analyze user request\nconst request = $input.first().json;\n\n// Simple keyword analysis\nconst userRequest = request.request || '';\nconst keywords = {\n  'auth': ['authentication', 'auth', 'login', 'oauth', 'jwt'],\n  'database': ['database', 'db', 'postgres', 'mysql', 'mongodb'],\n  'api': ['api', 'endpoint', 'rest', 'graphql'],\n  'notification': ['notification', 'email', 'sms', 'push']\n};\n\n// Detect required components\nconst detectedComponents = [];\nconst requiredPrimitives = [];\n\nfor (const [component, words] of Object.entries(keywords)) {\n  for (const word of words) {\n    if (userRequest.toLowerCase().includes(word)) {\n      detectedComponents.push(component);\n      \n      // Map to primitives\n      if (component === 'auth') {\n        requiredPrimitives.push('authenticate', 'authorize');\n      } else if (component === 'database') {\n        requiredPrimitives.push('query', 'save');\n      } else if (component === 'api') {\n        requiredPrimitives.push('httpRequest', 'validate');\n      } else if (component === 'notification') {\n        requiredPrimitives.push('sendEmail', 'sendSms');\n      }\n      break;\n    }\n  }\n}\n\n// Create workflow specification\nconst workflowId = `workflow-${Date.now()}`;\nconst specification = {\n  workflowId: workflowId,\n  workflowName: `generated-${workflowId}`,\n  description: userRequest || 'Generated workflow',\n  originalRequest: userRequest,\n  detectedComponents: [...new Set(detectedComponents)],\n  requiredPrimitives: [...new Set(requiredPrimitives)],\n  steps: [],\n  compatibilityCheck: {\n    breakingChanges: false,\n    notes: 'Auto-generated from request analysis',\n    timestamp: new Date().toISOString()\n  }\n};\n\n// Generate simple steps based on detected components\nif (detectedComponents.includes('auth')) {\n  specification.steps.push({\n    stepName: 'Authentication Setup',\n    stepType: 'primitive',\n    primitiveName: 'authenticate',\n    parameters: { method: 'oauth2' },\n    dependencies: ['security']\n  });\n}\n\nif (detectedComponents.includes('database')) {\n  specification.steps.push({\n    stepName: 'Database Connection',\n    stepType: 'primitive',\n    primitiveName: 'query',\n    parameters: { database: 'postgres' },\n    dependencies: ['persistence']\n  });\n}\n\nif (detectedComponents.includes('api')) {\n  specification.steps.push({\n    stepName: 'API Endpoint',\n    stepType: 'primitive',\n    primitiveName: 'httpRequest',\n    parameters: { method: 'GET', url: '/api/data' },\n    dependencies: ['network']\n  });\n}\n\nreturn [{\n  json: {\n    status: 'analyzed',\n    message: 'Request analyzed successfully',\n    specification: specification,\n    timestamp: new Date().toISOString(),\n    nextStep: 'create_workflow'\n  }\n}];"
+      }
+    },
+    {
+      "id": "mock-api-call",
+      "name": "Mock Create Workflow",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 400],
+      "parameters": {
+        "jsCode": "// Mock API call to workflow-api\nconst analysis = $input.first().json;\nconst specification = analysis.specification;\n\n// Simulate API response\nconst mockResponse = {\n  workflowId: specification.workflowId,\n  runId: `run-${Date.now()}`,\n  status: 'created',\n  message: 'Workflow created successfully (mock)',\n  apiEndpoint: 'http://localhost:8080/api/workflows',\n  mock: true\n};\n\nreturn [{\n  json: {\n    ...analysis,\n    apiResponse: mockResponse,\n    finalResult: {\n      status: 'success',\n      workflowId: specification.workflowId,\n      specification: specification,\n      nextAgent: 'tdd-tester',\n      instructions: 'Proceed with TDD testing'\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "response-node",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [650, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json.finalResult || $json}}",
+        "responseCode": 200
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mock Create Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Request": {
+      "main": [
+        [
+          {
+            "node": "Mock Create Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Create Workflow": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": ["ai-agent", "architect", "stage2"],
+  "active": false
+}

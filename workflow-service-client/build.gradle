@@ -1,12 +1,11 @@
 plugins {
     id 'java-library'
+    id 'application'
 }
 
 dependencies {
     implementation project(':workflow-common')
-    implementation project(':workflow-engine')
     implementation project(':workflow-primitive')
-
     // Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -24,4 +23,8 @@ dependencies {
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+}
+
+application {
+    mainClass = 'com.uwf.workflow.client.example.WorkflowClientExample'
 }

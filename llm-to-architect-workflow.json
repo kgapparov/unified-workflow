@@ -1,0 +1,118 @@
+{
+  "name": "LLM to Architect Bridge",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Trigger (from LLM)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [250, 300],
+      "parameters": {}
+    },
+    {
+      "id": "prepare-architect-data",
+      "name": "Prepare Architect Data",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 250],
+      "parameters": {
+        "jsCode": "// Prepare data for architect agent based on LLM analysis\n// This would normally come from Basic LLM Chain output\nconst llmAnalysis = {\n  task_type: \"feature\",\n  components: [\"workflow-api\", \"workflow-engine\", \"workflow-common\", \"workflow-service-client\"],\n  subtasks: [\n    \"Определить модель пользователя и ролей в workflow-common\",\n    \"Реализовать сервис аутентификации/авторизации (JWT/OAuth2)\",\n    \"Добавить защищенные эндпоинты и проверку прав в workflow-api\",\n    \"Интегрировать проверку авторизации в workflow-engine при запуске процессов\",\n    \"Обновить workflow-service-client для передачи токенов авторизации\",\n    \"Добавить конфигурацию безопасности в application.properties/yml\"\n  ],\n  recommended_agent: \"architect\",\n  complexity: \"high\",\n  estimated_time: \"3-5 days\",\n  notes: \"Требуется проектирование системы ролей (например, Admin, User, Viewer) и разрешений для workflow. Необходимо решить, будет ли использоваться встроенная аутентификация или интеграция с внешним провайдером (Keycloak, Auth0). Важно обеспечить безопасную передачу и хранение токенов.\",\n  code_references: [\n    {\n      file: \"workflow-api/src/main/java/com/uwf/workflow/api/controller/WorkflowController.java\",\n      purpose: \"Добавить аннотации @PreAuthorize к эндпоинтам\"\n    },\n    {\n      file: \"workflow-common/src/main/java/com/uwf/workflow/common/model/\",\n      purpose: \"Добавить классы User, Role, Permission\"\n    },\n    {\n      file: \"workflow-api/src/main/resources/application.yml\",\n      purpose: \"Добавить конфигурацию security и JWT\"\n    }\n  ]\n};\n\n// Create architect request\nconst architectRequest = {\n  request: \"Разработать систему авторизации для unified-workflow на основе анализа LLM\",\n  llmAnalysis: llmAnalysis,\n  priority: \"high\",\n  workflowId: `auth-${Date.now()}`,\n  timestamp: new Date().toISOString(),\n  requirements: {\n    mustHave: [\n      \"Ролевая модель (Admin, User, Viewer)\",\n      \"JWT-based аутентификация\",\n      \"Защищенные REST endpoints\",\n      \"Интеграция с workflow-engine\"\n    ],\n    niceToHave: [\n      \"OAuth2 поддержка\",\n      \"Интеграция с Keycloak/Auth0\",\n      \"Audit logging\",\n      \"Rate limiting\"\n    ]\n  }\n};\n\nreturn [{\n  json: architectRequest\n}];"
+      }
+    },
+    {
+      "id": "call-architect-workflow",
+      "name": "Call Architect Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [650, 250],
+      "parameters": {
+        "url": "http://localhost:5678/webhook/architect-v2",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "values": [
+            {
+              "name": "request",
+              "value": "={{$json.request}}"
+            },
+            {
+              "name": "llmAnalysis",
+              "value": "={{$json.llmAnalysis}}"
+            },
+            {
+              "name": "workflowId",
+              "value": "={{$json.workflowId}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "process-architect-response",
+      "name": "Process Architect Response",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 250],
+      "parameters": {
+        "jsCode": "// Process architect's response\nconst architectResponse = $input.first().json;\n\n// Extract specification from architect\nconst specification = architectResponse.specification || architectResponse.finalResult?.specification;\n\nif (!specification) {\n  return [{\n    json: {\n      status: \"error\",\n      message: \"Architect didn't return specification\",\n      rawResponse: architectResponse,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Enhance specification with LLM analysis\nconst enhancedSpecification = {\n  ...specification,\n  llmAnalysis: architectResponse.llmAnalysis || {},\n  implementationPlan: {\n    phases: [\n      {\n        name: \"Phase 1: Модели и конфигурация\",\n        tasks: [\n          \"Создать User, Role, Permission модели в workflow-common\",\n          \"Настроить Spring Security с JWT\",\n          \"Добавить конфигурацию в application.yml\"\n        ],\n        estimatedTime: \"2 days\"\n      },\n      {\n        name: \"Phase 2: API и сервисы\",\n        tasks: [\n          \"Реализовать AuthController с endpoints\",\n          \"Добавить @PreAuthorize аннотации\",\n          \"Создать UserService и RoleService\"\n        ],\n        estimatedTime: \"2 days\"\n      },\n      {\n        name: \"Phase 3: Интеграция\",\n        tasks: [\n          \"Интегрировать авторизацию в workflow-engine\",\n          \"Обновить workflow-service-client\",\n          \"Добавить тесты\"\n        ],\n        estimatedTime: \"1-2 days\"\n      }\n    ],\n    totalEstimatedTime: \"5-6 days\"\n  },\n  nextSteps: [\n    \"1. Создать ветку git для реализации\",\n    \"2. Начать с Phase 1 (модели)\",\n    \"3. После завершения Phase 1 перейти к TDD-тестировщику\"\n  ]\n};\n\nreturn [{\n  json: {\n    status: \"success\",\n    message: \"Architect created detailed specification\",\n    workflowId: architectResponse.workflowId || `workflow-${Date.now()}`,\n    specification: enhancedSpecification,\n    timestamp: new Date().toISOString(),\n    nextAgent: \"tdd-tester\",\n    delivery: {\n      format: \"Git branch + PR\",\n      repository: \"github.com/kgapparov/unified-workflow\",\n      branchName: \"feature/auth-system\"\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "format-final-response",
+      "name": "Format Final Response",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 250],
+      "parameters": {
+        "jsCode": "// Format final response for chat/user\nconst data = $input.first().json;\nconst spec = data.specification;\n\nconst chatResponse = `\n🏗️ **АРХИТЕКТОР ЗАВЕРШИЛ РАБОТУ**\n\n✅ **Задача:** ${spec.workflowName || 'Система авторизации'}\n📋 **ID:** ${data.workflowId}\n⚡ **Сложность:** ${spec.llmAnalysis?.complexity || 'high'}\n⏱️ **Общее время:** ${spec.implementationPlan?.totalEstimatedTime || '5-6 дней'}\n\n📊 **План реализации:**\n${spec.implementationPlan?.phases?.map(p => `\\n**${p.name}** (${p.estimatedTime})\\n${p.tasks.map(t => `  • ${t}`).join('\\n')}`).join('\\n')}\n\n🔗 **Следующие шаги:**\n${spec.nextSteps?.map(s => `  • ${s}`).join('\\n')}\n\n📁 **Доставка:**\n  • Репозиторий: ${data.delivery?.repository}\n  • Ветка: ${data.delivery?.branchName}\n  • Формат: ${data.delivery?.format}\n\n🤖 **Следующий агент:** ${data.nextAgent}\n`;\n\nreturn [{\n  json: {\n    ...data,\n    chatResponse: chatResponse,\n    summary: {\n      task: \"Система авторизации\",\n      status: \"designed\",\n      timestamp: new Date().toISOString(),\n      agents: [\"llm-analyst\", \"architect\"],\n      nextAgent: data.nextAgent\n    }\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Trigger (from LLM)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Architect Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Architect Data": {
+      "main": [
+        [
+          {
+            "node": "Call Architect Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Architect Workflow": {
+      "main": [
+        [
+          {
+            "node": "Process Architect Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Architect Response": {
+      "main": [
+        [
+          {
+            "node": "Format Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": ["llm", "architect", "bridge", "authorization"],
+  "active": false
+}

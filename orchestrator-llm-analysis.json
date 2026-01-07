@@ -1,0 +1,190 @@
+{
+  "name": "Orchestrator LLM Analysis & Routing",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "orchestrator-request",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "orchestrator-request-webhook"
+    },
+    {
+      "id": "deepseek-llm",
+      "name": "DeepSeek LLM Analysis",
+      "type": "n8n-nodes-base.deepseek",
+      "position": [450, 250],
+      "parameters": {
+        "model": "deepseek-chat",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Ты - архитектор системы workflow-оркестратора. Проанализируй запрос пользователя и верни ТОЛЬКО JSON без дополнительного текста. Система состоит из: workflow-api (REST API), workflow-engine (исполнение workflow), workflow-primitive (примитивы), database (PostgreSQL), queue (Kafka/RabbitMQ), auth (аутентификация)."
+            },
+            {
+              "role": "user",
+              "content": "Запрос: {{$json.body.request || $json.request}}\n\nПроанализируй и верни JSON в следующем формате:\n{\n  \"task_type\": \"feature|bug|improvement\",\n  \"components\": [\"component1\", \"component2\"],\n  \"subtasks\": [\"subtask1\", \"subtask2\"],\n  \"recommended_agent\": \"architect|tdd-tester|implementer|docker-packager\",\n  \"complexity\": \"low|medium|high\",\n  \"estimated_time\": \"2 hours\",\n  \"notes\": \"Дополнительные заметки\"\n}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 1000
+        }
+      }
+    },
+    {
+      "id": "parse-llm-response",
+      "name": "Parse LLM Response",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 250],
+      "parameters": {
+        "jsCode": "// Parse LLM response\nconst llmResponse = $input.first().json;\n\n// LLM может вернуть текст с JSON внутри, нужно извлечь JSON\nlet analysis = {};\n\nif (typeof llmResponse === 'string') {\n  // Попробуем извлечь JSON из текста\n  try {\n    const jsonMatch = llmResponse.match(/\\{.*\\}/s);\n    if (jsonMatch) {\n      analysis = JSON.parse(jsonMatch[0]);\n    } else {\n      analysis = { error: 'No JSON found in LLM response', raw: llmResponse };\n    }\n  } catch (e) {\n    analysis = { error: 'Failed to parse LLM response', raw: llmResponse };\n  }\n} else if (llmResponse.content) {\n  // Если ответ в поле content\n  try {\n    analysis = JSON.parse(llmResponse.content);\n  } catch (e) {\n    analysis = { error: 'Failed to parse content', raw: llmResponse.content };\n  }\n} else {\n  analysis = llmResponse;\n}\n\n// Ensure required fields\nconst defaultAnalysis = {\n  task_type: 'feature',\n  components: [],\n  subtasks: [],\n  recommended_agent: 'architect',\n  complexity: 'medium',\n  estimated_time: '2 hours',\n  notes: ''\n};\n\nconst finalAnalysis = { ...defaultAnalysis, ...analysis };\n\n// Add original request\nconst requestData = $input.first().json;\nconst originalRequest = requestData.body?.request || requestData.request || '';\n\nreturn [{\n  json: {\n    originalRequest: originalRequest,\n    analysis: finalAnalysis,\n    timestamp: new Date().toISOString(),\n    workflowId: `orchestrator-${Date.now()}`\n  }\n}];"
+      }
+    },
+    {
+      "id": "router",
+      "name": "Router to Agent",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 250],
+      "parameters": {
+        "jsCode": "// Route to appropriate agent based on LLM analysis\nconst data = $input.first().json;\nconst analysis = data.analysis;\nconst agent = analysis.recommended_agent;\n\n// Prepare data for the agent\nconst agentData = {\n  originalRequest: data.originalRequest,\n  analysis: analysis,\n  workflowId: data.workflowId,\n  timestamp: data.timestamp\n};\n\n// Route based on agent\nlet nextStep = '';\nlet webhookPath = '';\n\nswitch (agent) {\n  case 'architect':\n    nextStep = 'architect-agent';\n    webhookPath = 'architect-v2';\n    break;\n  case 'tdd-tester':\n    nextStep = 'tdd-tester-agent';\n    webhookPath = 'tdd-tester';\n    break;\n  case 'implementer':\n    nextStep = 'implementer-agent';\n    webhookPath = 'implementer';\n    break;\n  case 'docker-packager':\n    nextStep = 'docker-packager-agent';\n    webhookPath = 'docker-packager';\n    break;\n  default:\n    nextStep = 'architect-agent';\n    webhookPath = 'architect-v2';\n}\n\nreturn [{\n  json: {\n    ...data,\n    routing: {\n      agent: agent,\n      nextStep: nextStep,\n      webhookPath: webhookPath,\n      agentData: agentData\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "http-request-architect",
+      "name": "Call Architect Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 400],
+      "parameters": {
+        "url": "={{$json.routing.webhookPath === 'architect-v2' ? 'http://localhost:5678/webhook/architect-v2' : ''}}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "values": [
+            {
+              "name": "request",
+              "value": "={{$json.routing.agentData.originalRequest}}"
+            },
+            {
+              "name": "analysis",
+              "value": "={{$json.routing.agentData.analysis}}"
+            },
+            {
+              "name": "workflowId",
+              "value": "={{$json.routing.agentData.workflowId}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "conditions": {
+        "options": {
+          "check": "={{$json.routing.agent === 'architect'}}"
+        }
+      }
+    },
+    {
+      "id": "aggregator",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 300],
+      "parameters": {
+        "jsCode": "// Aggregate results from all agents\nconst inputs = $input.all();\nconst results = [];\n\nfor (const input of inputs) {\n  if (input.json) {\n    results.push({\n      agent: input.json.routing?.agent || 'unknown',\n      data: input.json,\n      timestamp: new Date().toISOString()\n    });\n  }\n}\n\n// If no results from agents, use router data\nif (results.length === 0) {\n  const routerData = $input.first().json;\n  results.push({\n    agent: 'router',\n    data: routerData,\n    timestamp: new Date().toISOString()\n  });\n}\n\nreturn [{\n  json: {\n    status: 'processed',\n    workflowId: $input.first().json.workflowId || `workflow-${Date.now()}`,\n    originalRequest: $input.first().json.originalRequest,\n    analysis: $input.first().json.analysis,\n    agentResults: results,\n    summary: {\n      totalAgents: results.length,\n      agents: results.map(r => r.agent),\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "response-node",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1250, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "responseCode": 200
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek LLM Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek LLM Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Response": {
+      "main": [
+        [
+          {
+            "node": "Router to Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router to Agent": {
+      "main": [
+        [
+          {
+            "node": "Call Architect Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Architect Agent": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": ["orchestrator", "llm", "deepseek", "ai-agents"],
+  "active": false
+}

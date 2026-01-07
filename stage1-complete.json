@@ -1,0 +1,63 @@
+{
+  "name": "Architect Agent - Stage 1",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "architect-test",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "architect-webhook-test"
+    },
+    {
+      "id": "code-processor",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300],
+      "parameters": {
+        "jsCode": "// Simple echo response\nconst request = $input.first().json;\nreturn [{\n  json: {\n    status: 'success',\n    message: 'Request received successfully',\n    originalRequest: request,\n    timestamp: new Date().toISOString(),\n    stage: 1,\n    agent: 'architect'\n  }\n}];"
+      }
+    },
+    {
+      "id": "response-node",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [650, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "responseCode": 200
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": ["ai-agent", "architect", "stage1"],
+  "active": false
+}
