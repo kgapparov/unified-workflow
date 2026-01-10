@@ -71,6 +71,46 @@ public class WorkflowController {
         return ResponseEntity.ok(data);
     }
 
+    @GetMapping("/metrics/{runId}")
+    public ResponseEntity<Map<String, Object>> getWorkflowMetrics(@PathVariable String runId) {
+        WorkflowData workflowData = stateManagement.getData(runId);
+        WorkflowContext context = stateManagement.getContext(runId);
+        
+        if (workflowData == null || context == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        Map<String, Object> metrics = new HashMap<>();
+        
+        // Add workflow context
+        metrics.put("workflowContext", context);
+        
+        // Add workflow metrics
+        Map<String, Object> workflowMetrics = workflowData.get("workflow_metrics", Map.class);
+        if (workflowMetrics != null) {
+            metrics.put("workflowMetrics", workflowMetrics);
+        }
+        
+        // Collect all step metrics
+        Map<String, Object> stepMetrics = new HashMap<>();
+        Map<String, Object> childStepMetrics = new HashMap<>();
+        
+        Map<String, Object> dataMap = workflowData.toMap();
+        for (Map.Entry<String, Object> entry : dataMap.entrySet()) {
+            String key = entry.getKey();
+            if (key.startsWith("step_") && key.endsWith("_metrics")) {
+                stepMetrics.put(key, entry.getValue());
+            } else if (key.startsWith("childStep_") && key.endsWith("_metrics")) {
+                childStepMetrics.put(key, entry.getValue());
+            }
+        }
+        
+        metrics.put("stepMetrics", stepMetrics);
+        metrics.put("childStepMetrics", childStepMetrics);
+        
+        return ResponseEntity.ok(metrics);
+    }
+
     @GetMapping("/list")
     public ResponseEntity<List<Map<String, String>>> listWorkflows() {
         String[] workflowIds = workflowRegistry.getAllWorkflowIds();

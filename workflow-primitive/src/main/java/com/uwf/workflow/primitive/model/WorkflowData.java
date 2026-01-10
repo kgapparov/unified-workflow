@@ -1,5 +1,9 @@
 package com.uwf.workflow.primitive.model;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -99,6 +103,59 @@ public class WorkflowData implements Serializable {
      */
     public synchronized Map<String, Object> toMap() {
         return new HashMap<>(data);
+    }
+
+    /**
+     * Creates a deep copy of this WorkflowData.
+     * Attempts to deep copy all values using serialization.
+     * If serialization fails for any value, falls back to shallow copy.
+     *
+     * @return a deep copy of this WorkflowData
+     */
+    public synchronized WorkflowData deepCopy() {
+        Map<String, Object> copiedData = new HashMap<>();
+        
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            
+            if (value == null) {
+                copiedData.put(key, null);
+            } else if (value instanceof Serializable) {
+                try {
+                    // Attempt deep copy via serialization
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    ObjectOutputStream oos = new ObjectOutputStream(baos);
+                    oos.writeObject(value);
+                    oos.close();
+                    
+                    ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+                    ObjectInputStream ois = new ObjectInputStream(bais);
+                    Object copiedValue = ois.readObject();
+                    ois.close();
+                    
+                    copiedData.put(key, copiedValue);
+                } catch (Exception e) {
+                    // Fall back to shallow copy if serialization fails
+                    copiedData.put(key, value);
+                }
+            } else {
+                // Non-serializable object, use shallow copy
+                copiedData.put(key, value);
+            }
+        }
+        
+        return new WorkflowData(copiedData);
+    }
+
+    /**
+     * Creates a shallow copy of this WorkflowData.
+     * The map is copied but values are not deep copied.
+     *
+     * @return a shallow copy of this WorkflowData
+     */
+    public synchronized WorkflowData shallowCopy() {
+        return new WorkflowData(new HashMap<>(data));
     }
 
     /**

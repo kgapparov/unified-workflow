@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -129,8 +131,11 @@ public class WorkflowExecutor {
      * Executes a workflow.
      */
     private void executeWorkflow(String runId, WorkflowContext context, WorkflowData data, Workflow workflow) throws Exception {
-        WorkflowContext runningContext = context.withStatus(WorkflowStatus.RUNNING);
+        WorkflowContext runningContext = context.withStatus(WorkflowStatus.RUNNING).withStartTime(Instant.now());
         stateManagement.saveContext(runningContext);
+
+        // Store workflow metrics
+        storeWorkflowMetrics(workflow, data, runningContext.startTime(), null);
 
         try {
             // Execute all steps in the workflow
@@ -151,20 +156,51 @@ public class WorkflowExecutor {
             }
 
             // Workflow completed successfully
+            Instant endTime = Instant.now();
             WorkflowContext completedContext = runningContext
                     .withStatus(WorkflowStatus.COMPLETED)
-                    .withEndTime(Instant.now());
+                    .withEndTime(endTime);
             stateManagement.saveContext(completedContext);
+            
+            // Update workflow metrics with completion time
+            storeWorkflowMetrics(workflow, data, runningContext.startTime(), endTime);
 
         } catch (Exception e) {
             // Workflow failed
+            Instant endTime = Instant.now();
             WorkflowContext failedContext = runningContext
                     .withStatus(WorkflowStatus.FAILED)
                     .withErrorMessage("Step execution failed: " + e.getMessage())
-                    .withEndTime(Instant.now());
+                    .withEndTime(endTime);
             stateManagement.saveContext(failedContext);
+            
+            // Update workflow metrics with failure time
+            storeWorkflowMetrics(workflow, data, runningContext.startTime(), endTime);
             throw e;
         }
+    }
+
+    /**
+     * Stores workflow execution metrics in workflow data.
+     *
+     * @param workflow the workflow being executed
+     * @param data the workflow data
+     * @param startTime the workflow start time
+     * @param endTime the workflow end time, or null if not completed
+     */
+    private void storeWorkflowMetrics(Workflow workflow, WorkflowData data, Instant startTime, Instant endTime) {
+        String workflowMetricsKey = "workflow_metrics";
+        Map<String, Object> metrics = new HashMap<>();
+        metrics.put("workflowId", workflow.getId());
+        metrics.put("workflowDescription", workflow.getDescription());
+        metrics.put("stepCount", workflow.getStepCount());
+        metrics.put("totalChildStepCount", workflow.getTotalChildStepCount());
+        metrics.put("startTime", startTime);
+        metrics.put("endTime", endTime);
+        if (startTime != null && endTime != null) {
+            metrics.put("durationMillis", java.time.Duration.between(startTime, endTime).toMillis());
+        }
+        data.put(workflowMetricsKey, metrics);
     }
 
     /**
